@@ -11,7 +11,7 @@ read the Ni card and add +1 each time receive  a trig signal
 from PyQt6 import QtCore
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QIcon
-from PyQt6.QtWidgets import QApplication,QLineEdit,QFileDialog,QSpacerItem,QSizePolicy
+from PyQt6.QtWidgets import QApplication,QLineEdit,QFileDialog
 from PyQt6.QtWidgets import QWidget,QVBoxLayout,QPushButton,QHBoxLayout,QLabel,QSpinBox,QCheckBox
 import pathlib
 import select
@@ -58,11 +58,11 @@ class SERVERGUI(QWidget) :
         self.icon = str(self.p.parent) + self.sepa +'icons' + self.sepa
         self.setWindowIcon(QIcon(self.icon + 'LOA.png'))
         # start server
-        self.ser = SERVER(self)
+        self.ser = SERVER(parent=self)
         self.ser.start()
 
         # start daq from NI 
-        self.daq = NIDAQ(self)
+        self.daq=NIDAQ(self)
         self.daq.TRIGSHOOT.connect(self.ChangeTrig)
         self.daq.setZero()
         self.daq.start()
@@ -74,7 +74,7 @@ class SERVERGUI(QWidget) :
         pathAutoSave = str(self.p.parent)+self.sepa+'SauvPosition'
         
         folder = pathAutoSave + self. sepa + foldername
-        #print("folder '%s' " %folder)
+        print("folder '%s' " %folder)
         if not os.path.isdir(folder):
             os.mkdir(folder)
 
@@ -108,18 +108,17 @@ class SERVERGUI(QWidget) :
         self.nbShoot=QSpinBox()
         self.nbShoot.setMaximum(100000)
         self.nbShoot.setValue(int(self.confTir.value('TIR'+"/shootNumber")))
-        #self.nbShoot.editingFinished.connect(self.nbShootEdit)
-        self.nbShoot.valueChanged.connect(self.nbShootEdit)
+        self.nbShoot.editingFinished.connect(self.nbShootEdit)
         hbox2.addWidget(labelNbShoot)
         hbox2.addWidget(self.nbShoot)  
         vbox1.addLayout(hbox2)
         hbox3 = QHBoxLayout()
-        #labelNiconter = QLabel('Trig count : ')
-        # self.NIShoot = QSpinBox()
-        # self.NIShoot.setReadOnly(True)
-        # self.NIShoot.setMaximum(100000)
-        #hbox3.addWidget(labelNiconter)
-        # hbox3.addWidget(self.NIShoot)
+        labelNiconter = QLabel('Trig count : ')
+        self.NIShoot = QSpinBox()
+        self.NIShoot.setReadOnly(True)
+        self.NIShoot.setMaximum(100000)
+        hbox3.addWidget(labelNiconter)
+        hbox3.addWidget(self.NIShoot)
         
         # self.resetButton=QPushButton('shoot')
         # self.resetButton.clicked.connect(self.shootAct)
@@ -142,22 +141,13 @@ class SERVERGUI(QWidget) :
         self.vCamBox = QVBoxLayout()
         HCamlayoutLabel = QHBoxLayout()
         labelcam = QLabel(' Camera connected :')
-        labelcam.setStyleSheet('color : green;')
         HCamlayoutLabel.addWidget(labelcam)
         self.autoSave = QCheckBox('autoSave')
         HCamlayoutLabel.addWidget(self.autoSave)
         self.vCamBox.addLayout(HCamlayoutLabel)
-        spacer0 = QSpacerItem(20,50,QSizePolicy.Policy.Minimum,QSizePolicy.Policy.Expanding)
-        vbox1.addSpacerItem(spacer0)
-        widgetCam = QWidget()
-        widgetCam.setLayout(self.vCamBox)
-        rgbcolor_gray = 'rgb(0,48,57)'
-        widgetCam.setStyleSheet("background-color:%s" % rgbcolor_gray)
-        vbox1.addWidget(widgetCam)
+        vbox1.addLayout(self.vCamBox)
         # self.butt = QPushButton()
         # self.vbox.addWidget(self.butt)
-        spacer = QSpacerItem(20,50,QSizePolicy.Policy.Minimum,QSizePolicy.Policy.Expanding)
-        vbox1.addSpacerItem(spacer)
         vbox1.addLayout(self.vbox)
         self.setLayout(vbox1)
        
@@ -222,10 +212,9 @@ class SERVERGUI(QWidget) :
         self.file.close()
 
 
-    def ChangeTrig(self,trigShot): 
-
+    def ChangeTrig(self,trigShot):
         print('receive new trig')
-        #self.NIShoot.setValue(trigShot)
+        self.NIShoot.setValue(trigShot)
         self.old_value = self.nbShoot.value()  # self.old_value numero du tir en cours
         # on envoi a la camera old_value c'est a dire le tir en cour (le trig arrive 100ms avant le tir et la camera mais du tps a lire)
         self.nbShoot.setValue(int(self.old_value+1)) # le tri a eu lieu  on +1 le tir 
@@ -236,8 +225,8 @@ class SERVERGUI(QWidget) :
         filename = 'SauvegardeMot'+time.strftime("%Y_%m_%d")
         print('Backup motor position file created : ' , foldername)
         pathAutoSave = str(self.p.parent)+self.sepa+'SauvPosition'
-        folder = pathAutoSave + self.sepa+foldername
-        #print("folder '%s' " %folder)
+        folder = pathAutoSave+self.sepa+foldername
+        print("folder '%s' " %folder)
         if not os.path.isdir(folder):
             os.mkdir(folder)
             
@@ -262,11 +251,9 @@ class SERVERGUI(QWidget) :
     def PathButtonChanged(self):
         self.pathMain = str(QFileDialog.getExistingDirectory( ))
         self.pathBoxMain.setText(self.pathMain)
-        self.confTir.setValue('TIR'+'/pathMain',self.pathMain)
         
     def pathBoxChanged(self):
-        print(self.pathMain.text())
-        self.confTir.setValue('TIR'+'/pathMain',self.pathMain)
+        self.confTir.setValue(self.pathMain)
 
     def nbShootEdit(self):
         self.old_value = self.nbShoot.value()
@@ -347,16 +334,14 @@ class SERVER(QtCore.QThread):
             #self.clientList[client_id] = client_adresse 
             Hcam = QHBoxLayout()
             label = QLabel(nameVisu)
-            label.setStyleSheet("background-color : green;")
             foldername = time.strftime("%Y_%m_%d")  # Save in a new folder with the time as namefile
             pathMain = self.parent.pathBoxMain.text()
             folder = pathMain +'/' + foldername 
-            print('client folder',folder)
             if not os.path.isdir(folder):
-                os.makedirs(folder)
+                os.mkdir(folder)
             folder = folder +'/'+ nameVisu 
             if not os.path.isdir(folder):
-                os.makedirs(folder)
+                os.mkdir(folder)
             pathBox = QLineEdit(folder)
             buttonPath = QPushButton('Path : ')
             buttonPath.clicked.connect(lambda: self.PathChanged(buttonPath,pathBox))
@@ -400,7 +385,7 @@ class CLIENTTHREAD(QtCore.QThread):
     def __init__(self,client_socket,client_adresse,parent=None):
         super(CLIENTTHREAD, self).__init__(parent)
         self.client_socket = client_socket
-        print('new client', client_adresse)
+        
         #self.client_socket.settimeout(3)
         self.client_adresse = client_adresse
         self.parent = parent
@@ -435,7 +420,8 @@ class CLIENTTHREAD(QtCore.QThread):
                                         number = str(self.parent.parent.old_value) # send the shoot nuber not the n+1
                                             # print('server number',number)
                                         self.client_socket.send(number.encode())
-
+        
+                    
                                     elif msgReceived == 'idShoot?':
                                         numberId = str(self.parent.parent.old_value)  +"@"+self.parent.date2 # send the shoot nuber not the n+1
                                         self.client_socket.send(number.encode())
